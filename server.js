@@ -6,10 +6,16 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// 🔓 FIXED CORS: Now accepts "null" from strict Perchance iframes
+// 🔒 STRICT CORS: VIP list only
+const allowedOrigins = [
+  'https://perchance.org',
+  'https://e4c355945691054b89b23a0133098083.perchance.org',
+  'null' // Required so Perchance iframes don't break
+];
+
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || origin === 'null' || origin.endsWith('.perchance.org') || origin === 'https://perchance.org') {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Blocked by secure backend CORS'));
@@ -22,7 +28,7 @@ app.use(cors(corsOptions));
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      if (!origin || origin === 'null' || origin.endsWith('.perchance.org') || origin === 'https://perchance.org') {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Blocked by secure backend CORS'));
@@ -35,7 +41,6 @@ const io = new Server(server, {
 const activeUsers = new Map(); 
 
 io.on('connection', (socket) => {
-  // IP limit temporarily removed for testing!
   
   socket.on('join_counter', (data) => {
     activeUsers.set(socket.id, {
