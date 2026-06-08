@@ -6,11 +6,10 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// 🔒 STRICT CORS: VIP list only
+// 🔒 ULTRA-STRICT CORS: Secret link and required iframes only
 const allowedOrigins = [
-  'https://perchance.org',
   'https://e4c355945691054b89b23a0133098083.perchance.org',
-  'null'
+  'null' 
 ];
 
 const corsOptions = {
@@ -43,7 +42,6 @@ let dailyPeak = 0;
 let allTimePeak = 0;
 
 // 🛡️ THE LAZY DATABASE INITIALIZATION
-// Only runs once when the server wakes up
 async function initDatabase() {
   if (!process.env.UPSTASH_URL || !process.env.UPSTASH_TOKEN) {
     console.log("No database keys found. Running in RAM-only mode.");
@@ -76,12 +74,10 @@ io.on('connection', (socket) => {
     
     const currentCount = activeUsers.size;
 
-    // Check Daily Peak
     if (currentCount > dailyPeak) {
       dailyPeak = currentCount;
     }
     
-    // 🏆 LAZY WRITE: Only ping the database if a literal new record is set
     if (currentCount > allTimePeak) {
       allTimePeak = currentCount;
       
