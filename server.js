@@ -39,7 +39,32 @@ const io = new Server(server, {
 });
 
 const activeUsers = new Map(); 
-let dailyPeak = 0; // 🏆 NEW: Tracks the highest concurrent users in memory
+let dailyPeak = 0; 
+let allTimePeak = 0;
+
+// 🛡️ THE LAZY DATABASE INITIALIZATION
+// Only runs once when the server wakes up
+async function initDatabase() {
+  if (!process.env.UPSTASH_URL || !process.env.UPSTASH_TOKEN) {
+    console.log("No database keys found. Running in RAM-only mode.");
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${process.env.UPSTASH_URL}/get/aistudio_all_time_peak`, {
+      headers: { Authorization: `Bearer ${process.env.UPSTASH_TOKEN}` }
+    });
+    const data = await res.json();
+    if (data.result) {
+      allTimePeak = parseInt(data.result);
+      console.log(`Database Connected. All-Time Peak Loaded: ${allTimePeak}`);
+    }
+  } catch (e) {
+    console.error("Database connection error on boot.");
+  }
+}
+
+initDatabase();
 
 io.on('connection', (socket) => {
   
@@ -49,9 +74,22 @@ io.on('connection', (socket) => {
       countryCode: data.countryCode || 'un'
     });
     
-    // 🏆 NEW: Check if current users exceed the saved peak
-    if (activeUsers.size > dailyPeak) {
-      dailyPeak = activeUsers.size;
+    const currentCount = activeUsers.size;
+
+    // Check Daily Peak
+    if (currentCount > dailyPeak) {
+      dailyPeak = currentCount;
+    }
+    
+    // 🏆 LAZY WRITE: Only ping the database if a literal new record is set
+    if (currentCount > allTimePeak) {
+      allTimePeak = currentCount;
+      
+      if (process.env.UPSTASH_URL && process.env.UPSTASH_TOKEN) {
+        fetch(`${process.env.UPSTASH_URL}/set/aistudio_all_time_peak/${allTimePeak}`, {
+          headers: { Authorization: `Bearer ${process.env.UPSTASH_TOKEN}` }
+        }).catch(err => console.error("Database write error."));
+      }
     }
     
     broadcastUpdate();
@@ -65,10 +103,10 @@ io.on('connection', (socket) => {
 
 function broadcastUpdate() {
   const usersArray = Array.from(activeUsers.values());
-  // 🏆 NEW: Send both the array AND the peak count to the dashboard
   io.emit('counter_update', {
     activeList: usersArray,
-    peakCount: dailyPeak
+    peakCount: dailyPeak,
+    allTimeCount: allTimePeak
   });
 }
 
