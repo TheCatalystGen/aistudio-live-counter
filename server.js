@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'https://perchance.org',
   'https://e4c355945691054b89b23a0133098083.perchance.org',
-  'null' // Required so Perchance iframes don't break
+  'null'
 ];
 
 const corsOptions = {
@@ -39,6 +39,7 @@ const io = new Server(server, {
 });
 
 const activeUsers = new Map(); 
+let dailyPeak = 0; // 🏆 NEW: Tracks the highest concurrent users in memory
 
 io.on('connection', (socket) => {
   
@@ -47,6 +48,12 @@ io.on('connection', (socket) => {
       countryName: data.countryName || 'Unknown',
       countryCode: data.countryCode || 'un'
     });
+    
+    // 🏆 NEW: Check if current users exceed the saved peak
+    if (activeUsers.size > dailyPeak) {
+      dailyPeak = activeUsers.size;
+    }
+    
     broadcastUpdate();
   });
 
@@ -58,7 +65,11 @@ io.on('connection', (socket) => {
 
 function broadcastUpdate() {
   const usersArray = Array.from(activeUsers.values());
-  io.emit('counter_update', usersArray);
+  // 🏆 NEW: Send both the array AND the peak count to the dashboard
+  io.emit('counter_update', {
+    activeList: usersArray,
+    peakCount: dailyPeak
+  });
 }
 
 app.get('/', (req, res) => {
