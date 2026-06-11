@@ -2,11 +2,12 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const cron = require('node-cron'); // 🟢 NEW: Alarm clock library for midnight resets
 
 const app = express();
 const server = http.createServer(app);
 
-// 🔒 ULTRA-STRICT CORS: Secret link and required iframes only
+// 🔒 ULTRA-STRICT CORS: Secret link and required iframes only (PRESERVED)
 const allowedOrigins = [
   'https://e4c355945691054b89b23a0133098083.perchance.org',
   'null' 
@@ -41,7 +42,7 @@ const activeUsers = new Map();
 let dailyPeak = 0; 
 let allTimePeak = 0;
 
-// 🛡️ THE LAZY DATABASE INITIALIZATION
+// 🛡️ THE LAZY DATABASE INITIALIZATION (PRESERVED)
 async function initDatabase() {
   if (!process.env.UPSTASH_URL || !process.env.UPSTASH_TOKEN) {
     console.log("No database keys found. Running in RAM-only mode.");
@@ -63,6 +64,21 @@ async function initDatabase() {
 }
 
 initDatabase();
+
+// ⏰ THE MIDNIGHT ALARM (NEW FIX)
+// Resets the daily peak at exactly 12:00 AM IST
+cron.schedule('0 0 * * *', () => {
+  console.log("Midnight reached: Resetting Daily Peak!");
+  
+  // Set the new peak to the exact number of people currently online right now
+  dailyPeak = activeUsers.size; 
+  
+  // Instantly broadcast the fresh start to everyone's UI
+  broadcastUpdate();
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata" 
+});
 
 io.on('connection', (socket) => {
   
